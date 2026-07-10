@@ -28,9 +28,22 @@
   form input{padding:8px;border:1px solid #ccc;border-radius:4px;font-size:13px}
   .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
   .muted{color:#888;font-size:13px}
+  #gate{position:fixed;inset:0;background:#4a86e8;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:10}
+  #gate input{padding:10px;border:none;border-radius:6px;font-size:15px;width:220px}
+  #gate button{padding:10px 18px;font-size:15px}
+  #app{display:none}
 </style>
 </head>
 <body>
+
+<div id="gate">
+  <h1 style="color:#fff">Scan Log — Sign In</h1>
+  <input id="pw" type="password" placeholder="Password" autofocus>
+  <button class="btn-primary" onclick="checkGate()">Enter</button>
+  <div id="gateMsg" style="color:#ffd;font-size:13px;height:16px"></div>
+</div>
+
+<div id="app">
 <header><h1>Dental Scan Log</h1></header>
 <main>
   <div class="tiles">
@@ -62,10 +75,23 @@
     <tbody id="rows"></tbody>
   </table>
 </main>
+</div>
 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbywqKmxhFSoyCNUgLiCv1RI_eHmMy1l9NgiXWYUt1Ih9rEn-0CQjd5pTYLpNeIGJOQM/exec';
 const API_KEY = '726wash';
+const GATE_PASSWORD = 'dentaldemo';   // change this; note: NOT real security
+
+function checkGate(){
+  if(document.getElementById('pw').value === GATE_PASSWORD){
+    document.getElementById('gate').style.display='none';
+    document.getElementById('app').style.display='block';
+    load();
+  } else {
+    document.getElementById('gateMsg').textContent='Incorrect password';
+  }
+}
+document.getElementById('pw').addEventListener('keydown',e=>{ if(e.key==='Enter') checkGate(); });
 
 async function api(payload){
   const res = await fetch(API_URL,{
@@ -83,8 +109,10 @@ async function load(){
   const data = await api({action:'list'});
   if(!data.ok){ document.getElementById('status').textContent = 'Error: '+data.error; return; }
   const s = data.summary;
-  t_open.textContent=s.openCases; t_overdue.textContent=s.overdueCases;
-  t_week.textContent=s.dueThisWeek; t_ready.textContent=s.readyForDelivery;
+  document.getElementById('t-open').textContent = s.openCases;
+  document.getElementById('t-overdue').textContent = s.overdueCases;
+  document.getElementById('t-week').textContent = s.dueThisWeek;
+  document.getElementById('t-ready').textContent = s.readyForDelivery;
   const tb = document.getElementById('rows'); tb.innerHTML='';
   data.cases.forEach(c=>{
     const tr=document.createElement('tr');
@@ -112,8 +140,6 @@ document.getElementById('newForm').addEventListener('submit', async e=>{
   new FormData(f).forEach((v,k)=>{ if(v) payload[k]=v; });
   await api(payload); f.reset(); toggleForm(); load();
 });
-
-load();
 </script>
 </body>
 </html>
