@@ -87,25 +87,32 @@
     </div>
 
     <script>
-        // --- YOUR JSONBIN DETAILS ---
         const BIN_ID = '6a51342df5f4af5e297e13f6';
-        const API_KEY = '$2a$10$mhV/lDVLKWb.xxl0t3d9L.vMlOwVAJeGqsz7KUycTelWeNffNJX9i';
-        // ----------------------------
+        const API_KEY = '$2a$10$mhV/lDVLKWb.xxl0t3d9L.vMl0wVAJeGqsz7KUycTelWeNffNJX9i';
 
         let allCases = [];
 
         async function loadCases() {
             try {
-                const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
                     headers: { 'X-Master-Key': API_KEY }
                 });
                 const data = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error(data.message || `HTTP ${res.status}`);
+                }
+                
                 if (data.record && data.record.cases) {
                     allCases = data.record.cases;
+                } else if (data.record && Array.isArray(data.record)) {
+                    allCases = data.record; 
                 }
+                
                 renderDashboard();
             } catch (err) {
                 alert("Error loading cases from JSONBin: " + err.message);
+                console.error(err);
             }
         }
 
@@ -115,14 +122,22 @@
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Master-Key': API_KEY
+                        'X-Master-Key': API_KEY,
+                        'X-Bin-Versioning': 'false' // Prevents version limit lockouts
                     },
                     body: JSON.stringify({ cases: allCases })
                 });
-                if (!res.ok) throw new Error("Failed to sync to database");
+                
+                const responseData = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error(responseData.message || `HTTP ${res.status}`);
+                }
+                
                 renderDashboard();
             } catch (err) {
-                alert("Error saving cases to JSONBin: " + err.message);
+                alert("JSONBin Error Details: " + err.message);
+                console.error(err);
             }
         }
 
@@ -137,7 +152,7 @@
             nextWeek.setDate(today.getDate() + 7);
 
             allCases.forEach(c => {
-                if (c.case_delivered) return; // Hide delivered cases from the active view
+                if (c.case_delivered) return; 
                 openCount++;
                 
                 const expectedDate = new Date(c.expected_return_date + "T00:00:00"); 
@@ -195,6 +210,7 @@
             allCases.push(newCase);
             document.getElementById('patientName').value = '';
             document.getElementById('expectedDate').value = '';
+            
             saveCases();
         }
 
@@ -221,7 +237,7 @@
             }
         }
 
-        // Initialize
+        // Boot it up
         loadCases();
     </script>
 </body>
