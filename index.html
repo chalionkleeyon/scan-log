@@ -176,6 +176,12 @@ const FILE_PATH     = "data.json";             // path to the data file in the r
 /* ========================================================================= */
 
 const API_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${FILE_PATH}`;
+const LOCAL_STORAGE_KEY = "labCaseTrackerDemoData";
+
+// Demo mode kicks in automatically until a real token is pasted in above.
+// It stores cases in this browser's localStorage instead of committing to GitHub,
+// so you can try out the app before wiring up GitHub sync.
+const DEMO_MODE = GITHUB_TOKEN === "PASTE_YOUR_TOKEN_HERE";
 
 let cases = [];       // in-memory copy of the case list
 let currentSha = null; // the last-known git blob sha for data.json, required to commit updates
@@ -213,6 +219,13 @@ function fromBase64(b64) {
    Load data.json from GitHub
    ------------------------------------------------------------------------- */
 async function loadCases() {
+  if (DEMO_MODE) {
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    cases = stored ? JSON.parse(stored) : [];
+    renderTable();
+    showBanner("Demo mode: no GitHub token set, so cases are saved to this browser only (not GitHub). Paste a token into GITHUB_TOKEN to enable real syncing.", "loading");
+    return;
+  }
   showBanner("Loading cases from GitHub...", "loading");
   try {
     const res = await fetch(`${API_URL}?ref=${GITHUB_BRANCH}`, {
@@ -238,6 +251,11 @@ async function loadCases() {
    Save the current "cases" array back to data.json via a new commit
    ------------------------------------------------------------------------- */
 async function saveCases(commitMessage) {
+  if (DEMO_MODE) {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cases));
+    showBanner("Demo mode: saved to this browser only (not GitHub).", "loading");
+    return;
+  }
   showBanner("Saving to GitHub...", "loading");
   addBtn.disabled = true;
   try {
@@ -343,12 +361,7 @@ addForm.addEventListener("submit", async (e) => {
 /* -------------------------------------------------------------------------
    Kick things off
    ------------------------------------------------------------------------- */
-if (GITHUB_TOKEN === "PASTE_YOUR_TOKEN_HERE") {
-  showBanner("Set your GitHub token in the GITHUB_TOKEN variable near the top of the <script> tag before using this app.", "error");
-  tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Waiting for GitHub token...</td></tr>`;
-} else {
-  loadCases();
-}
+loadCases();
 </script>
 </body>
 </html>
