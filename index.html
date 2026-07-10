@@ -1,101 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dental Lab Case Tracker</title>
-    <!-- Supabase Library -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 1200px; margin: auto; }
-        .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
-        .metric-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
-        .metric-card h3 { margin: 0 0 10px 0; font-size: 14px; color: #666; text-transform: uppercase; }
-        .metric-card .value { font-size: 32px; font-weight: bold; color: #2c3e50; }
-        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }
-        .panel h2 { margin-top: 0; font-size: 18px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .form-group { display: flex; gap: 15px; margin-bottom: 15px; align-items: flex-end; }
-        .form-group > div { flex: 1; display: flex; flex-direction: column; }
-        label { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #555; }
-        input, select, button { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background-color: #0056b3; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background-color: #f9f9f9; font-weight: bold; font-size: 14px; }
-        .action-btn { padding: 6px 12px; font-size: 12px; border-radius: 4px; border: none; cursor: pointer; color: white; margin-right: 5px; }
-        .btn-deliver { background-color: #28a745; }
-        .btn-deliver:hover { background-color: #218838; }
-        .btn-return { background-color: #dc3545; }
-        .btn-return:hover { background-color: #c82333; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Lab Case Dashboard</h1>
-        
-        <!-- Metrics -->
-        <div class="metrics-grid">
-            <div class="metric-card"><h3>Open Cases</h3><div class="value" id="count-open">0</div></div>
-            <div class="metric-card"><h3>Overdue</h3><div class="value" id="count-overdue">0</div></div>
-            <div class="metric-card"><h3>Due This Week</h3><div class="value" id="count-due-week">0</div></div>
-            <div class="metric-card"><h3>Ready for Delivery</h3><div class="value" id="count-ready">0</div></div>
-        </div>
-
-        <!-- Add Case Form -->
-        <div class="panel">
-            <h2>Log New Case</h2>
-            <div class="form-group">
-                <div><label>Patient Name</label><input type="text" id="patientName" placeholder="e.g. Jane Doe"></div>
-                <div>
-                    <label>Procedure</label>
-                    <select id="procedure">
-                        <option value="New Invisalign">New Invisalign</option>
-                        <option value="Refinement Invisalign">Refinement Invisalign</option>
-                        <option value="Retainers">Retainers</option>
-                        <option value="Full-Coverage Occlusal Splint with Anterior Contact Ramp">Full-Coverage Occlusal Splint with Anterior Contact Ramp</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Lab</label>
-                    <select id="labName">
-                        <option value="Align Tech">Align Tech</option>
-                        <option value="Hoboken Dental Lab">Hoboken Dental Lab</option>
-                        <option value="Local Lab">Local Lab</option>
-                    </select>
-                </div>
-                <div><label>Expected Return Date</label><input type="date" id="expectedDate"></div>
-                <div><button onclick="addCase()">Add Case</button></div>
-            </div>
-        </div>
-
-        <!-- Open Cases Table -->
-        <div class="panel">
-            <h2>Active Cases</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date Sent</th>
-                        <th>Patient Name</th>
-                        <th>Procedure</th>
-                        <th>Lab</th>
-                        <th>Expected Return</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="casesTableBody">
-                    <!-- Data populated by JS -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <script>
+<script>
         // --- PASTE YOUR KEYS HERE ---
         const SUPABASE_URL = 'https://ntpmkzrnpfrcrniyfhdu.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_9o6b7G4THa5ayFHeatDeMA_OU2DzXZ9';
+        const SUPABASE_ANON_KEY = 'sb_publishable_9o6b7G4THa5ayFHeatDeMA_OU2DzXZ9'; // Make sure your full publishable key is here!
         // ----------------------------
 
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -107,7 +13,11 @@
                 .eq('case_delivered', false)
                 .order('expected_return_date', { ascending: true });
 
-            if (error) { console.error("Error loading cases:", error); return; }
+            if (error) { 
+                alert("Error loading cases: " + error.message); 
+                console.error(error); 
+                return; 
+            }
 
             const tbody = document.getElementById('casesTableBody');
             tbody.innerHTML = '';
@@ -163,7 +73,7 @@
 
             if(!patientName || !expectedDate) return alert("Please fill out patient name and expected date!");
 
-            await supabase.from('lab_cases').insert([{
+            const { error } = await supabase.from('lab_cases').insert([{
                 patient_name: patientName,
                 procedure: procedure,
                 lab: lab,
@@ -173,27 +83,33 @@
                 sent_back_to_lab: false
             }]);
 
+            if (error) {
+                alert("Failed to add case: " + error.message);
+                console.error(error);
+                return;
+            }
+
             document.getElementById('patientName').value = '';
             document.getElementById('expectedDate').value = '';
             loadCases();
         }
 
         async function markDelivered(id) {
-            await supabase.from('lab_cases').update({ case_delivered: true }).eq('id', id);
+            const { error } = await supabase.from('lab_cases').update({ case_delivered: true }).eq('id', id);
+            if (error) alert("Error delivering case: " + error.message);
             loadCases();
         }
 
         async function sendBack(id) {
-            // Prompt the staff member for the new date
             const newExpectedDate = prompt("This case is being sent back to the lab. Please enter the NEW expected return date (YYYY-MM-DD):");
             
-            // Only proceed if they typed a date and didn't hit cancel
             if (newExpectedDate) {
-                await supabase.from('lab_cases').update({ 
+                const { error } = await supabase.from('lab_cases').update({ 
                     sent_back_to_lab: true, 
                     date_returned: null,
                     expected_return_date: newExpectedDate
                 }).eq('id', id);
+                if (error) alert("Error resending case: " + error.message);
                 loadCases();
             } else {
                 alert("Action cancelled. A new date is required to resend a case.");
@@ -204,5 +120,3 @@
             loadCases();
         }
     </script>
-</body>
-</html>
