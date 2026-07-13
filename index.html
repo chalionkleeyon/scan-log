@@ -166,25 +166,22 @@
 
 <script>
 /* =========================================================================
-   CONFIGURATION - fill these in before using the app
+   CONFIGURATION - fill this in before using the app
    ========================================================================= */
-const GITHUB_TOKEN = "PASTE_YOUR_TOKEN_HERE"; // <-- your GitHub Personal Access Token goes here
-const GITHUB_OWNER  = "chalionkleeyon";        // GitHub username or org that owns the repo
-const GITHUB_REPO   = "scan-log";              // repository name
-const GITHUB_BRANCH = "main";                  // branch to read/write data.json on
-const FILE_PATH     = "data.json";             // path to the data file in the repo
+// URL of your deployed Cloudflare Worker (see worker/worker.js and the
+// deployment instructions). No GitHub token goes in this file — the Worker
+// holds it instead, so this page is safe to host publicly.
+const WORKER_URL = "PASTE_YOUR_WORKER_URL_HERE"; // e.g. "https://scan-log-proxy.yourname.workers.dev"
 /* ========================================================================= */
 
-const API_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${FILE_PATH}`;
 const LOCAL_STORAGE_KEY = "labCaseTrackerDemoData";
 
-// Demo mode kicks in automatically until a real token is pasted in above.
-// It stores cases in this browser's localStorage instead of committing to GitHub,
-// so you can try out the app before wiring up GitHub sync.
-const DEMO_MODE = GITHUB_TOKEN === "PASTE_YOUR_TOKEN_HERE";
+// Demo mode kicks in automatically until a Worker URL is set above.
+// It stores cases in this browser's localStorage instead of syncing to GitHub,
+// so you can try out the app before deploying the Worker.
+const DEMO_MODE = WORKER_URL === "PASTE_YOUR_WORKER_URL_HERE";
 
-let cases = [];       // in-memory copy of the case list
-let currentSha = null; // the last-known git blob sha for data.json, required to commit updates
+let cases = []; // in-memory copy of the case list
 
 const tbody = document.getElementById("cases-tbody");
 const banner = document.getElementById("status-banner");
@@ -199,56 +196,37 @@ function hideBanner() {
   banner.className = "";
 }
 
-function authHeaders() {
-  return {
-    "Authorization": `Bearer ${GITHUB_TOKEN}`,
-    "Accept": "application/vnd.github+json"
-  };
-}
-
-// Encode a JS string as base64, safely handling non-ASCII characters (e.g. accented names)
-function toBase64(str) {
-  return btoa(unescape(encodeURIComponent(str)));
-}
-// Decode base64 (as returned by GitHub) back into a normal JS string
-function fromBase64(b64) {
-  return decodeURIComponent(escape(atob(b64)));
-}
-
 /* -------------------------------------------------------------------------
-   Load data.json from GitHub
+   Load cases via the Worker (which reads data.json from GitHub)
    ------------------------------------------------------------------------- */
 async function loadCases() {
   if (DEMO_MODE) {
     const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
     cases = stored ? JSON.parse(stored) : [];
     renderTable();
-    showBanner("Demo mode: no GitHub token set, so cases are saved to this browser only (not GitHub). Paste a token into GITHUB_TOKEN to enable real syncing.", "loading");
+    showBanner("Demo mode: no Worker URL set, so cases are saved to this browser only (not GitHub). Paste your Worker URL into WORKER_URL to enable real syncing.", "loading");
     return;
   }
-  showBanner("Loading cases from GitHub...", "loading");
+  showBanner("Loading cases...", "loading");
   try {
-    const res = await fetch(`${API_URL}?ref=${GITHUB_BRANCH}`, {
-      headers: authHeaders()
-    });
+    const res = await fetch(`${WORKER_URL}/cases`);
     if (!res.ok) {
-      throw new Error(`GitHub API error (${res.status}): ${res.statusText}`);
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || `Request failed (${res.status})`);
     }
-    const file = await res.json();
-    currentSha = file.sha;
-    const jsonText = fromBase64(file.content.replace(/\n/g, ""));
-    cases = jsonText.trim() ? JSON.parse(jsonText) : [];
+    const data = await res.json();
+    cases = data.cases;
     renderTable();
     hideBanner();
   } catch (err) {
     console.error(err);
     showBanner(`Failed to load cases: ${err.message}`, "error");
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Could not load data.json</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Could not load cases</td></tr>`;
   }
 }
 
 /* -------------------------------------------------------------------------
-   Save the current "cases" array back to data.json via a new commit
+   Save the current "cases" array via the Worker (which commits to GitHub)
    ------------------------------------------------------------------------- */
 async function saveCases(commitMessage) {
   if (DEMO_MODE) {
@@ -256,29 +234,18 @@ async function saveCases(commitMessage) {
     showBanner("Demo mode: saved to this browser only (not GitHub).", "loading");
     return;
   }
-  showBanner("Saving to GitHub...", "loading");
+  showBanner("Saving...", "loading");
   addBtn.disabled = true;
   try {
-    const content = toBase64(JSON.stringify(cases, null, 2));
-    const res = await fetch(API_URL, {
-      method: "PUT",
-      headers: {
-        ...authHeaders(),
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        message: commitMessage,
-        content: content,
-        sha: currentSha,
-        branch: GITHUB_BRANCH
-      })
+    const res = await fetch(`${WORKER_URL}/cases`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cases, message: commitMessage })
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.message || `GitHub API error (${res.status})`);
+      throw new Error(errBody.error || `Request failed (${res.status})`);
     }
-    const result = await res.json();
-    currentSha = result.content.sha; // update sha so the next save doesn't conflict
     showBanner("Saved successfully.", "success");
     setTimeout(hideBanner, 2500);
   } catch (err) {
